@@ -55,54 +55,13 @@ const LoginPage = () => {
   };
 
   const handleSpotifyLogin = async () => {
-    setIsLoading(true);
-    console.log('🎵 Initiating Spotify login to:', API_BASE_URL);
-    
-    try {
-      const loginUrl = `${API_BASE_URL}/auth/login`;
-      console.log('Calling login endpoint:', loginUrl);
-      
-      const response = await fetch(loginUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('Login response:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Login response data:', data);
-        
-        if (data.auth_url) {
-          console.log('✅ Got auth URL, redirecting to Spotify...');
-          console.log('Auth URL:', data.auth_url);
-          
-          // Store current origin for callback
-          localStorage.setItem('melody_match_origin', window.location.origin);
-          
-          window.location.href = data.auth_url;
-        } else {
-          throw new Error('No auth URL received from server');
-        }
-      } else {
-        const errorData = await response.text();
-        console.error('❌ Login API Error Response:', errorData);
-        throw new Error(`Login request failed: ${response.status} - ${errorData}`);
-      }
-    } catch (error) {
-      console.error('❌ Login error details:', error);
-      setAlertType('error');
-      setAlertMessage('❌ Unable to connect to Spotify. Please check your connection and try again.');
-      setShowAlert(true);
-      setIsLoading(false);
-    }
-  };
+  // Call your backend /auth/login to get the correct Spotify URL
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login?redirect_uri=${window.location.origin}`);
+  const authUrl = await res.text(); // backend should return a redirect or URL
+  
+  // Instead of fetch → redirect browser
+  window.location.href = authUrl;
+};
 
   // Enhanced callback handling for Spotify OAuth
   useEffect(() => {
@@ -606,7 +565,7 @@ const LoginPage = () => {
               <>
                 <div className="text-center space-y-2">
                   <h3 className="text-2xl font-bold text-gray-800">Welcome! 🎵</h3>
-                  <p className="text-gray-600">You're successfully logged in to Melody Match</p>
+                  <p className="text-gray-600">You&apos;re successfully logged in to Melody Match</p>
                 </div>
                 
                 {/* User Info */}
