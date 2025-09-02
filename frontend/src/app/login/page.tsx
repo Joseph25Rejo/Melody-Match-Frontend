@@ -14,6 +14,7 @@ const LoginPage = () => {
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<'success' | 'error'>('success');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const router = useRouter();
 
   const API_BASE_URL = 'https://thecodeworks.in/melodymatch';
@@ -39,87 +40,212 @@ const LoginPage = () => {
       localStorage.removeItem('melody_match_user_id');
       localStorage.removeItem('melody_match_token_expiry');
       localStorage.removeItem('melody_match_login_time');
+      setIsLoggedIn(false);
     } catch (error) {
       console.error('Failed to clear user data from localStorage:', error);
     }
   };
 
+  const handleLogout = () => {
+    console.log('🚪 Logging out user...');
+    clearUserData();
+    setAlertType('success');
+    setAlertMessage('✅ Successfully logged out!');
+    setShowAlert(true);
+  };
+
   const handleSpotifyLogin = async () => {
     setIsLoading(true);
+    console.log('🎵 Initiating Spotify login to:', API_BASE_URL);
+    
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const loginUrl = `${API_BASE_URL}/auth/login`;
+      console.log('Calling login endpoint:', loginUrl);
+      
+      const response = await fetch(loginUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
       });
 
+      console.log('Login response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
       if (response.ok) {
         const data = await response.json();
+        console.log('Login response data:', data);
+        
         if (data.auth_url) {
+          console.log('✅ Got auth URL, redirecting to Spotify...');
+          console.log('Auth URL:', data.auth_url);
+          
+          // Store current origin for callback
+          localStorage.setItem('melody_match_origin', window.location.origin);
+          
           window.location.href = data.auth_url;
         } else {
           throw new Error('No auth URL received from server');
         }
       } else {
         const errorData = await response.text();
+        console.error('❌ Login API Error Response:', errorData);
         throw new Error(`Login request failed: ${response.status} - ${errorData}`);
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('❌ Login error details:', error);
       setAlertType('error');
-      setAlertMessage('Unable to connect to Spotify. Please check your connection and try again.');
+      setAlertMessage('❌ Unable to connect to Spotify. Please check your connection and try again.');
       setShowAlert(true);
       setIsLoading(false);
     }
   };
 
-  // Enhanced callback handling
+  // Enhanced callback handling for Spotify OAuth
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    const userId = urlParams.get('user_id');
-    const expiresIn = urlParams.get('expires_in');
-    const error = urlParams.get('error');
+    const handleSpotifyCallback = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const error = urlParams.get('error');
+      const state = urlParams.get('state');
+      
+      console.log('🔍 Checking for Spotify callback:', {
+        hasCode: !!code,
+        hasError: !!error,
+        error: error,
+        state: state,
+        fullUrl: window.location.href
+      });
+      
+      if (error) {
+        console.log('❌ Spotify OAuth Error:', error);
+        clearUserData();
+        setAlertType('error');
+        
+        let errorMessage = 'Authentication failed. Please try again.';
+        if (error === 'access_denied') {
+          errorMessage = '🚫 Access denied. You need to authorize the app to continue.';
+        }
+        
+        setAlertMessage(errorMessage);
+        setShowAlert(true);
+        
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
+      
+      if (code) {
+        console.log('🎉 Got Spotify auth code, exchanging for tokens...');
+        setIsLoading(true);
+        
+        try {
+          // Call backend callback endpoint with the code
+          const callbackUrl = `${API_BASE_URL}/auth/callback?code=${encodeURIComponent(code)}`;
+          console.log('Calling callback endpoint:', callbackUrl);
+          
+          const response = await fetch(callbackUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          console.log('Callback response:', {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Callback success data:', data);
+            
+            if (data.token && data.user_id) {
+              const userData: UserData = {
+                token: data.token,
+                user_id: data.user_id.toString(),
+                ...(data.expires_in && { expires_in: data.expires_in })
+              };
+              
+              saveUserData(userData);
+              setIsLoggedIn(true);
+              setAlertType('success');
+              setAlertMessage('🎵 Welcome to Melody Match! Login successful!');
+              setShowAlert(true);
+              
+              // Clean URL
+              window.history.replaceState({}, document.title, window.location.pathname);
+              
+              // Show success message
+              setTimeout(() => {
+                setAlertMessage('✨ You are now logged in! Dashboard coming soon...');
+              }, 2000);
+            } else {
+              throw new Error('Invalid response: missing token or user_id');
+            }
+          } else {
+            const errorData = await response.text();
+            console.error('❌ Callback API Error:', errorData);
+            throw new Error(`Callback failed: ${response.status} - ${errorData}`);
+          }
+        } catch (error) {
+          console.error('❌ Callback processing error:', error);
+          setAlertType('error');
+          setAlertMessage('❌ Authentication failed. Please try logging in again.');
+          setShowAlert(true);
+          
+          // Clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
     
-    if (token && userId) {
-      const userData: UserData = {
-        token,
-        user_id: userId,
-        ...(expiresIn && { expires_in: parseInt(expiresIn) })
-      };
-      
-      saveUserData(userData);
-      setAlertType('success');
-      setAlertMessage('🎵 Welcome to Melody Match! Your musical journey begins now.');
-      setShowAlert(true);
-      
-      // Clean URL and redirect
-      window.history.replaceState({}, document.title, window.location.pathname);
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 2500);
-    } else if (error) {
-      clearUserData();
-      setAlertType('error');
-      setAlertMessage('Authentication failed. Please try again.');
-      setShowAlert(true);
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, [router]);
+    // Run callback handler
+    handleSpotifyCallback();
+  }, [API_BASE_URL]);
 
   // Check if user is already logged in
   useEffect(() => {
-    const token = localStorage.getItem('melody_match_token');
-    const tokenExpiry = localStorage.getItem('melody_match_token_expiry');
-    
-    if (token) {
-      if (tokenExpiry && Date.now() > parseInt(tokenExpiry)) {
+    const checkExistingAuth = () => {
+      try {
+        const token = localStorage.getItem('melody_match_token');
+        const tokenExpiry = localStorage.getItem('melody_match_token_expiry');
+        const userId = localStorage.getItem('melody_match_user_id');
+        const loginTime = localStorage.getItem('melody_match_login_time');
+        
+        console.log('🔍 Checking existing login:', {
+          hasToken: !!token,
+          hasUserId: !!userId,
+          tokenExpiry: tokenExpiry ? new Date(parseInt(tokenExpiry)).toLocaleString() : 'none',
+          loginTime: loginTime ? new Date(parseInt(loginTime)).toLocaleString() : 'none',
+          currentTime: new Date().toLocaleString()
+        });
+        
+        if (token && userId) {
+          if (tokenExpiry && Date.now() > parseInt(tokenExpiry)) {
+            console.log('⏰ Token expired, clearing data');
+            clearUserData();
+          } else {
+            console.log('✅ User already logged in, redirecting to dashboard');
+            setIsLoggedIn(true);
+            router.push('/dashboard');
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error checking existing auth:', error);
+        // Clear potentially corrupted data
         clearUserData();
-      } else {
-        router.push('/dashboard');
       }
-    }
+    };
+    
+    checkExistingAuth();
   }, [router]);
 
   return (
@@ -436,43 +562,106 @@ const LoginPage = () => {
           </div>
         </div>
         
-        {/* Right side - Login */}
+        {/* Right side - Login/Dashboard */}
         <div className="p-12 flex flex-col justify-center">
           <div className="space-y-8">
-            <div className="text-center space-y-2">
-              <h3 className="text-2xl font-bold text-gray-800">Welcome Back</h3>
-              <p className="text-gray-600">Sign in to continue your musical journey</p>
-            </div>
-            
-            <button
-              onClick={handleSpotifyLogin}
-              disabled={isLoading}
-              className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 flex items-center justify-center gap-3 shadow-md"
-            >
-              {isLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white/30 border-t-white"></div>
-                  <span>Connecting...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
-                  </svg>
-                  <span>Continue with Spotify</span>
-                </>
-              )}
-            </button>
-            
-            <div className="text-center space-y-4">
-              <p className="text-xs text-gray-500">
-                Secure login powered by Spotify. We never store your password.
-              </p>
-              <div className="flex justify-center gap-6 text-xs text-gray-400">
-                <a href="#" className="hover:text-purple-600">Privacy</a>
-                <a href="#" className="hover:text-purple-600">Terms</a>
-              </div>
-            </div>
+            {!isLoggedIn ? (
+              // Login Form
+              <>
+                <div className="text-center space-y-2">
+                  <h3 className="text-2xl font-bold text-gray-800">Welcome Back</h3>
+                  <p className="text-gray-600">Sign in to continue your musical journey</p>
+                </div>
+                
+                <button
+                  onClick={handleSpotifyLogin}
+                  disabled={isLoading}
+                  className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 flex items-center justify-center gap-3 shadow-md"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white/30 border-t-white"></div>
+                      <span>Connecting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
+                      </svg>
+                      <span>Continue with Spotify</span>
+                    </>
+                  )}
+                </button>
+                
+                <div className="text-center space-y-4">
+                  <p className="text-xs text-gray-500">
+                    Secure login powered by Spotify. We never store your password.
+                  </p>
+                  <div className="flex justify-center gap-6 text-xs text-gray-400">
+                    <a href="#" className="hover:text-purple-600">Privacy</a>
+                    <a href="#" className="hover:text-purple-600">Terms</a>
+                  </div>
+                </div>
+              </>
+            ) : (
+              // Logged In Dashboard
+              <>
+                <div className="text-center space-y-2">
+                  <h3 className="text-2xl font-bold text-gray-800">Welcome! 🎵</h3>
+                  <p className="text-gray-600">You're successfully logged in to Melody Match</p>
+                </div>
+                
+                {/* User Info */}
+                <div className="bg-gray-50 rounded-xl p-6 space-y-4">
+                  <div className="flex items-center justify-center">
+                    <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-2xl">♪</span>
+                    </div>
+                  </div>
+                  <div className="text-center space-y-2">
+                    <h4 className="font-semibold text-gray-900">User ID: {localStorage.getItem('melody_match_user_id')}</h4>
+                    <p className="text-sm text-gray-600">Status: Active ✅</p>
+                    <p className="text-xs text-gray-500">
+                      Login Time: {localStorage.getItem('melody_match_login_time') ? 
+                        new Date(parseInt(localStorage.getItem('melody_match_login_time') || '0')).toLocaleString() : 
+                        'Unknown'
+                      }
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Coming Soon Features */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-800 text-center">Coming Soon 🚀</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white border border-gray-200 rounded-lg p-3 text-center">
+                      <div className="text-2xl mb-1">🎯</div>
+                      <p className="text-xs text-gray-600">Find Matches</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-3 text-center">
+                      <div className="text-2xl mb-1">💌</div>
+                      <p className="text-xs text-gray-600">Send Songs</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-3 text-center">
+                      <div className="text-2xl mb-1">🎶</div>
+                      <p className="text-xs text-gray-600">Playlists</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-3 text-center">
+                      <div className="text-2xl mb-1">📊</div>
+                      <p className="text-xs text-gray-600">Profile</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Logout Button */}
+                <button
+                  onClick={handleLogout}
+                  className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 hover:scale-[1.02]"
+                >
+                  🚪 Logout
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
