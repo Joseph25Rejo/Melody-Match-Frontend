@@ -10,6 +10,26 @@ export const AUTH_KEYS = {
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://thecodeworks.in/melodymatch';
 
+// Define proper types
+interface UserProfile {
+  user: {
+    id: number;
+    username: string;
+    email?: string;
+    profile_image?: string;
+  };
+  profile?: {
+    bio?: string;
+    age?: number;
+    location?: string;
+    interests?: string[];
+  };
+  music_data?: {
+    personality_vector?: number[];
+    last_updated?: string;
+  };
+}
+
 /**
  * Safely clear all authentication data from localStorage
  */
@@ -49,7 +69,7 @@ export const getStoredToken = (): { token: string | null; isExpired: boolean } =
 /**
  * Validate token with server
  */
-export const validateTokenWithServer = async (token: string): Promise<{ isValid: boolean; userData?: any }> => {
+export const validateTokenWithServer = async (token: string): Promise<{ isValid: boolean; userData?: UserProfile }> => {
   try {
     const response = await fetch(`${API_BASE_URL}/user/profile`, {
       method: 'GET',
@@ -81,7 +101,7 @@ export const validateTokenWithServer = async (token: string): Promise<{ isValid:
  */
 export const checkAuthentication = async (): Promise<{ 
   isAuthenticated: boolean; 
-  userData?: any; 
+  userData?: UserProfile; 
   shouldRedirect?: string 
 }> => {
   const { token, isExpired } = getStoredToken();

@@ -497,8 +497,6 @@ const LoginPage = () => {
         <div className="absolute bottom-56 right-3/4 text-xl text-pink-300/20 float-diagonal2" style={{'--rotation': '-40deg', animationDelay: '16s'} as React.CSSProperties}>
           𝄞
         </div>
-        
-        {/* Additional small music symbols */}
         <div className="absolute top-68 left-1/8 text-sm text-purple-300/20 float-slow-right" style={{'--rotation': '135deg', animationDelay: '28s'} as React.CSSProperties}>
           ♪
         </div>
@@ -608,7 +606,7 @@ const LoginPage = () => {
               <>
                 <div className="text-center space-y-2">
                   <h3 className="text-2xl font-bold text-gray-800">Welcome! 🎵</h3>
-                  <p className="text-gray-600">You&apos;re successfully logged in to Melody Match</p>
+                  <p className="text-gray-600">You're successfully logged in to Melody Match</p>
                 </div>
                 
                 {/* User Info */}

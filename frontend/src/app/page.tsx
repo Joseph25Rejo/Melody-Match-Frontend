@@ -18,7 +18,6 @@ const clearAuthData = () => {
 
 const HomePage = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const router = useRouter();
 
   // Check authentication status
@@ -34,7 +33,6 @@ const HomePage = () => {
             console.log('🕐 Token expired by timestamp, cleaning up...');
             // Token expired, clear data
             clearAuthData();
-            setIsLoggedIn(false);
             setIsLoading(false);
             return;
           }
@@ -53,34 +51,26 @@ const HomePage = () => {
             if (response.ok) {
               // Token is valid, redirect to dashboard
               console.log('✅ Token valid, redirecting to dashboard...');
-              setIsLoggedIn(true);
               router.push('/dashboard');
               return;
             } else if (response.status === 401) {
               // Token is invalid/expired on server, clean up
               console.log('🚫 Token invalid on server, cleaning up...');
               clearAuthData();
-              setIsLoggedIn(false);
             } else {
               // Other error, but don't redirect - stay on home page
               console.log('⚠️ Server error during token validation, staying on home page');
-              setIsLoggedIn(false);
             }
           } catch (fetchError) {
             // Network error or server unavailable
             console.log('🌐 Network error during token validation:', fetchError);
             // Don't clear token on network errors, just stay on home page
-            setIsLoggedIn(false);
           }
-        } else {
-          // No token exists
-          setIsLoggedIn(false);
         }
       } catch (error) {
         console.error('❌ Error checking auth status:', error);
         // On any error, clear potentially corrupted data
         clearAuthData();
-        setIsLoggedIn(false);
       }
       
       setIsLoading(false);
