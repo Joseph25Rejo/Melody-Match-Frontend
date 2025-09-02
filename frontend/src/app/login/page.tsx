@@ -608,7 +608,7 @@ const LoginPage = () => {
               <>
                 <div className="text-center space-y-2">
                   <h3 className="text-2xl font-bold text-gray-800">Welcome! 🎵</h3>
-                  <p className="text-gray-600">You're successfully logged in to Melody Match</p>
+                  <p className="text-gray-600">You&apos;re successfully logged in to Melody Match</p>
                 </div>
                 
                 {/* User Info */}

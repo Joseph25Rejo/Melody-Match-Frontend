@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Image from "next/image";
 
 interface UserProfile {
   user: {
@@ -224,7 +225,13 @@ const DashboardPage = () => {
           <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-pink-100">
             <div className="flex items-center space-x-4 mb-4">
               {userProfile?.user.profile_image ? (
-                <img src={userProfile.user.profile_image} alt="Profile" className="w-16 h-16 rounded-full border-2 border-pink-200" />
+                <Image
+                  src={userProfile.user.profile_image}
+                  alt="Profile"
+                  width={64}
+                  height={64}
+                  className="w-16 h-16 rounded-full border-2 border-pink-200 object-cover"
+                />
               ) : (
                 <div className="w-16 h-16 rounded-full bg-gradient-to-r from-pink-400 to-purple-500 flex items-center justify-center text-white text-xl font-bold">
                   {userProfile?.user.username.charAt(0).toUpperCase()}
@@ -296,7 +303,7 @@ const DashboardPage = () => {
         <div className="mt-8 bg-gradient-to-r from-pink-500/20 to-purple-600/20 backdrop-blur-sm rounded-2xl p-6 border border-pink-200">
           <div className="text-center">
             <h2 className="text-2xl font-bold text-gray-800 mb-2">🚧 Dashboard Under Construction 🚧</h2>
-            <p className="text-gray-600 mb-4">We're building amazing features for you! Full functionality coming soon.</p>
+            <p className="text-gray-600 mb-4">We&apos;re building amazing features for you! Full functionality coming soon.</p>
             <p className="text-sm text-gray-500">Your profile is active and ready. Matching features are being developed.</p>
           </div>
         </div>
