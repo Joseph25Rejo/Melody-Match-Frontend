@@ -56,7 +56,7 @@ const LoginPage = () => {
 
   const handleSpotifyLogin = async () => {
   // Call your backend /auth/login to get the correct Spotify URL
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login?redirect_uri=${window.location.origin}`);
+  const res = await fetch(`${API_BASE_URL}/auth/login?redirect_uri=${window.location.origin}`);
   const authUrl = await res.text(); // backend should return a redirect or URL
   
   // Instead of fetch → redirect browser
