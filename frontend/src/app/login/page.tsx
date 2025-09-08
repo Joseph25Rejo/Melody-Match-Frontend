@@ -54,13 +54,25 @@ const LoginPage = () => {
     setShowAlert(true);
   };
 
-  const handleSpotifyLogin = async () => {
-  // Call your backend /auth/login to get the correct Spotify URL
-  const res = await fetch(`${API_BASE_URL}/auth/login?redirect_uri=${window.location.origin}`);
-  const authUrl = await res.text(); // backend should return a redirect or URL
-  
-  // Instead of fetch → redirect browser
-  window.location.href = authUrl;
+const handleSpotifyLogin = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/login?redirect_uri=${encodeURIComponent(window.location.origin)}`);
+    
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    
+    // Parse the JSON response and extract the auth_url
+    const data = await res.json();
+    const authUrl = data.auth_url;
+    
+    // Redirect browser to Spotify auth URL
+    window.location.href = authUrl;
+    
+  } catch (error) {
+    console.error('Spotify login failed:', error);
+    // Handle error appropriately
+  }
 };
 
   // Enhanced callback handling for Spotify OAuth
